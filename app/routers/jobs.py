@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -14,6 +15,8 @@ from app.schemas.job import (
     JobUpdate,
     SortOrder,
 )
+from app.schemas.activity import ActivityRead
+from app.models.activity import ApplicationActivity
 from app.services.job_service import JobService
 from app.services.notification_service import (
     job_created_email,
@@ -90,6 +93,22 @@ def get_job(
     db: Session = Depends(get_db),
 ) -> Job:
     return JobService(db).get_job(job_id, current_user)
+
+
+@router.get("/{job_id}/activities", response_model=list[ActivityRead])
+def list_job_activities(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ApplicationActivity]:
+    job = JobService(db).get_job(job_id, current_user)
+    return list(
+        db.scalars(
+            select(ApplicationActivity)
+            .where(ApplicationActivity.job_id == job.id)
+            .order_by(ApplicationActivity.created_at, ApplicationActivity.id)
+        )
+    )
 
 
 @router.put("/{job_id}", response_model=JobRead)
