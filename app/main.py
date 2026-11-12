@@ -18,8 +18,15 @@ from app.core.metrics import REQUEST_COUNT, REQUEST_LATENCY
 from app import models
 from app.routers.jobs import router as jobs_router
 from app.routers.companies import router as companies_router
+from app.routers.dashboard import router as dashboard_router
+from app.routers.interviews import job_interviews_router, router as interviews_router
+from app.routers.phase2 import router as phase2_router
+from app.routers.analytics import router as analytics_router
 from app.db.database import SessionLocal
-from app.services.deadline_reminder_service import send_due_deadline_reminders
+from app.services.deadline_reminder_service import (
+    create_due_reminder_notifications,
+    send_due_deadline_reminders,
+)
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -30,6 +37,7 @@ async def deadline_reminder_loop() -> None:
             db = SessionLocal()
             try:
                 send_due_deadline_reminders(db)
+                create_due_reminder_notifications(db)
             finally:
                 db.close()
         except Exception:
@@ -64,6 +72,11 @@ app.add_middleware(
 
 app.include_router(jobs_router)
 app.include_router(companies_router)
+app.include_router(dashboard_router)
+app.include_router(interviews_router)
+app.include_router(job_interviews_router)
+app.include_router(phase2_router)
+app.include_router(analytics_router)
 app.include_router(auth.router)
 app.include_router(health.router)
 app.include_router(metrics.router)

@@ -45,6 +45,17 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER or "")
+DOCUMENT_STORAGE_PATH = Path(
+    os.getenv("DOCUMENT_STORAGE_PATH", "/app/storage")
+).expanduser()
+if not DOCUMENT_STORAGE_PATH.is_absolute():
+    DOCUMENT_STORAGE_PATH = (Path.cwd() / DOCUMENT_STORAGE_PATH).resolve()
+MAX_DOCUMENT_SIZE_BYTES = int(os.getenv("MAX_DOCUMENT_SIZE_BYTES", "10485760"))
+ALLOWED_DOCUMENT_EXTENSIONS = tuple(
+    ext.strip().lower()
+    for ext in os.getenv("ALLOWED_DOCUMENT_EXTENSIONS", ".pdf,.doc,.docx,.txt").split(",")
+    if ext.strip()
+)
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not configured")
@@ -64,3 +75,5 @@ if DEADLINE_REMINDER_INTERVAL_SECONDS < 60:
     raise ValueError("DEADLINE_REMINDER_INTERVAL_SECONDS must be at least 60")
 if SMTP_PORT < 1 or SMTP_PORT > 65535:
     raise ValueError("SMTP_PORT must be between 1 and 65535")
+if MAX_DOCUMENT_SIZE_BYTES < 1:
+    raise ValueError("MAX_DOCUMENT_SIZE_BYTES must be positive")
