@@ -27,6 +27,19 @@ services:
       timeout: 5s
       retries: 10
 
+  storage-init:
+    image: busybox:1.36
+    user: "0:0"
+    command:
+      - sh
+      - -c
+      - >-
+        mkdir -p /app/storage &&
+        chown -R 100:101 /app/storage &&
+        chmod 0750 /app/storage
+    volumes:
+      - document_storage:/app/storage
+
   api:
     build:
       context: .
@@ -35,6 +48,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-job_tracker}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-job_tracker_db}
       REDIS_URL: redis://redis:6379/0
+      DOCUMENT_STORAGE_PATH: /app/storage
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     ports:
       - "${API_HOST_PORT:-8000}:8000"
@@ -52,10 +66,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    volumes:
+      - document_storage:/app/storage
 
 volumes:
   postgres_data:
   redis_data:
+  document_storage:
 
 networks:
   backend:
