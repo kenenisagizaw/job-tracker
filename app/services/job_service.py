@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.models.job import Job
 from app.models.user import User
+from app.models.activity import ApplicationActivity
 from app.repositories.job_repository import JobRepository
+from app.repositories.company_repository import CompanyRepository
 from app.schemas.job import (
     JobCreate,
     JobSortField,
@@ -19,11 +21,29 @@ class JobService:
 
     def __init__(self, db: Session) -> None:
         self.repository = JobRepository(db)
+        self.company_repository = CompanyRepository(db)
         self.db = db
 
     def create_job(self, payload: JobCreate, current_user: User) -> Job:
+        if not self.company_repository.get_for_owner(
+            payload.company_id,
+            current_user.id,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Company not found",
+            )
         job = self.repository.add(
             Job(**payload.model_dump(), owner_id=current_user.id)
+        )
+        self.db.commit()
+        self.db.refresh(job)
+        self.db.add(
+            ApplicationActivity(
+                job_id=job.id,
+                event_type="job_created",
+                description=f"Job '{job.title}' was added to the pipeline.",
+            )
         )
         self.db.commit()
         self.db.refresh(job)
@@ -84,6 +104,14 @@ class JobService:
         self, job_id: int, payload: JobUpdate, current_user: User
     ) -> Job:
         job = self.get_job(job_id, current_user)
+        if not self.company_repository.get_for_owner(
+            payload.company_id,
+            current_user.id,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Company not found",
+            )
         for field, value in payload.model_dump().items():
             setattr(job, field, value)
         self.db.commit()
@@ -97,7 +125,18 @@ class JobService:
         current_user: User,
     ) -> Job:
         job = self.get_job(job_id, current_user)
+        old_status = job.status
         job.status = payload.status.value
+        self.db.add(
+            ApplicationActivity(
+                job_id=job.id,
+                event_type="status_changed",
+                description=(
+                    f"Status changed from '{old_status}' "
+                    f"to '{payload.status.value}'."
+                ),
+            )
+        )
         self.db.commit()
         self.db.refresh(job)
         return job

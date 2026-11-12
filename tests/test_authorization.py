@@ -41,13 +41,17 @@ def test_jobs_are_scoped_and_queryable_per_authenticated_user() -> None:
     Base.metadata.create_all(engine)
 
     with Session(engine) as db:
-        company = Company(name="Acme")
         first_user = User(email="first@example.com", hashed_password="hash")
         second_user = User(email="second@example.com", hashed_password="hash")
-        db.add_all([company, first_user, second_user])
+        db.add_all([first_user, second_user])
         db.commit()
         db.refresh(first_user)
         db.refresh(second_user)
+        company = Company(name="Acme", owner_id=first_user.id)
+        second_company = Company(name="Acme", owner_id=second_user.id)
+        db.add_all([company, second_company])
+        db.commit()
+        db.refresh(company)
 
         service = JobService(db)
         service.create_job(
@@ -68,11 +72,7 @@ def test_jobs_are_scoped_and_queryable_per_authenticated_user() -> None:
             first_user,
         )
         other_job = service.create_job(
-            JobCreate(
-                title="Security Engineer",
-                company_id=company.id,
-                location="Remote",
-            ),
+            JobCreate(title="Security Engineer", company_id=second_company.id, location="Remote"),
             second_user,
         )
 
@@ -97,13 +97,16 @@ def test_cross_user_job_access_raises_not_found() -> None:
     Base.metadata.create_all(engine)
 
     with Session(engine) as db:
-        company = Company(name="Acme")
         owner = User(email="owner@example.com", hashed_password="hash")
         other_user = User(email="other@example.com", hashed_password="hash")
-        db.add_all([company, owner, other_user])
+        db.add_all([owner, other_user])
         db.commit()
         db.refresh(owner)
         db.refresh(other_user)
+        company = Company(name="Acme", owner_id=owner.id)
+        db.add(company)
+        db.commit()
+        db.refresh(company)
         job = JobService(db).create_job(
             JobCreate(title="Engineer", company_id=company.id, location="Remote"),
             owner,
