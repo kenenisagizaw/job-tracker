@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -14,6 +15,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+
+if TYPE_CHECKING:
+    from app.models.activity import ApplicationActivity
+    from app.models.company import Company
+    from app.models.interview import Interview
+    from app.models.user import User
 
 
 class Job(Base):
@@ -49,4 +56,13 @@ class Job(Base):
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     deadline_reminder_sent_for: Mapped[date | None] = mapped_column(
         Date, nullable=True
+    )
+    activities: Mapped[list["ApplicationActivity"]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="ApplicationActivity.created_at",
+    )
+    interviews: Mapped[list["Interview"]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
     )
